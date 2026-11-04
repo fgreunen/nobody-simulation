@@ -1,0 +1,31 @@
+{
+  "measuredAt": "2026-11-04T17:38:58.077Z",
+  "browser": "156.0.8078.80",
+  "url": "http://127.0.0.1:5188/",
+  "adapter": {
+    "vendor": "intel",
+    "architecture": "gen-12lp",
+    "isFallbackAdapter": false
+  },
+  "warmupSeconds": 10,
+  "measurementSeconds": 60.051524699999995,
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "rendering": {
+    "width": 1280,
+    "height": 720,
+    "pixelRatio": 1,
+    "automaticQualityReduction": false
+  },
+  "bodies": 100,
+  "frames": 3600,
+  "averageFPS": 59.94851950861458,
+  "achievedSpeed": 0.9999932369888418,
+  "allForegroundSamples": true,
+  "pageErrors": [],
+  "passed": false,
+  "userAcceptedExistingEvidence": true,
+  "acceptanceNote": "Full run achieved the FPS and simulation-speed thresholds, but camera entered manual mode. User accepted existing evidence and waived further benchmark gating."
+}
