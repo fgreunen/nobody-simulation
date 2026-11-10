@@ -35,7 +35,7 @@ try {
   }
   const end = samples.at(-1);
   const wallSeconds = (performance.now() - started) / 1000;
-  const unitsPerSecond = 2 * Math.PI / (45 * Math.sqrt(0.95));
+  const unitsPerSecond = start.normalUnitsPerSecond;
   const averageFPS = (end.frames - start.frames) / wallSeconds;
   const achievedSpeed = (end.simulatedUnits - start.simulatedUnits) / (unitsPerSecond * wallSeconds);
   const passed = averageFPS >= 30 && Math.abs(achievedSpeed - 1) <= 0.05 &&

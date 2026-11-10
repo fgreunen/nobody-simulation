@@ -1,7 +1,8 @@
 import * as THREE from 'three/webgpu';
 import { pass } from 'three/tsl';
+import { appearance } from './appearance';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
-import { seededRandom, type SimulationState } from './physics';
+import { burstLifetime, characteristicTime, seededRandom, type SimulationState } from './physics';
 
 const TRAIL_SAMPLES = 48;
 export const RENDER_WIDTH = 1280;
@@ -45,8 +46,10 @@ export class UniverseView {
   readonly device: GPUDevice;
   readonly canvas: HTMLCanvasElement;
   private pipeline: THREE.RenderPipeline;
+  private marker = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, depthTest: false }));
   private cores: THREE.InstancedMesh | null = null;
   private halos: THREE.Sprite[] = [];
+  private flashes = new Map<number, THREE.Sprite>();
   private trails: THREE.LineSegments | null = null;
   private history = new Float32Array();
   private trailPositions = new Float32Array();
@@ -76,6 +79,11 @@ export class UniverseView {
     this.pipeline = new THREE.RenderPipeline(renderer);
     this.pipeline.outputNode = color.add(bloom(color, 0.55, 0.5, 0.85));
     this.addBackground();
+    const markerCanvas = document.createElement('canvas'); markerCanvas.width = markerCanvas.height = 64;
+    const ctx = markerCanvas.getContext('2d')!;
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(32, 32, 26, 0, Math.PI * 2); ctx.stroke();
+    this.marker.material.map = new THREE.CanvasTexture(markerCanvas); this.marker.material.opacity = 0.85;
+    this.marker.visible = false; this.scene.add(this.marker);
   }
 
   static async create(onLost: () => void): Promise<UniverseView> {
@@ -118,6 +126,8 @@ export class UniverseView {
   }
 
   setScene(state: SimulationState): void {
+    for (const flash of this.flashes.values()) { this.scene.remove(flash); flash.material.dispose(); }
+    this.flashes.clear();
     if (this.cores) { this.scene.remove(this.cores); this.cores.geometry.dispose(); (this.cores.material as THREE.Material).dispose(); this.cores.dispose(); }
     if (this.trails) { this.scene.remove(this.trails); this.trails.geometry.dispose(); (this.trails.material as THREE.Material).dispose(); }
     for (const halo of this.halos) { this.scene.remove(halo); (halo.material as THREE.Material).dispose(); }
@@ -126,14 +136,12 @@ export class UniverseView {
     this.cores = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 12, 8), material, state.count);
     this.cores.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.cores.frustumCulled = false;
-    const random = seededRandom(state.seed + 91);
-    const palette = ['#ffd6a0', '#dbe8ff', '#a4d5ff', '#ffe8c1', '#a4e1da'];
     for (let i = 0; i < state.count; i++) {
-      const color = new THREE.Color(i === 0 ? '#ffe2af' : palette[Math.floor(random() * palette.length)]);
+      const look = appearance(state.stars[i]);
+      const color = new THREE.Color().setRGB(...look.color as [number, number, number], THREE.SRGBColorSpace);
       this.colors.push(color);
-      this.cores.setColorAt(i, color.clone().multiplyScalar(i === 0 ? 4 : 2));
-      const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.haloTexture, color: color.clone().multiplyScalar(i === 0 ? 2.8 : 1.6), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
-      halo.scale.setScalar((i === 0 ? 0.65 : 0.095) * state.settings.radius);
+      this.cores.setColorAt(i, color.clone().multiplyScalar(look.brightness));
+      const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.haloTexture, color, opacity: 0.65, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
       this.scene.add(halo); this.halos.push(halo);
     }
     this.cores.instanceColor!.needsUpdate = true;
@@ -150,7 +158,7 @@ export class UniverseView {
     this.trailColors = new Float32Array(length);
     for (let i = 0; i < state.count; i++) {
       for (let j = 0; j < TRAIL_SAMPLES - 1; j++) {
-        const fade = (1 - j / (TRAIL_SAMPLES - 1)) ** 1.7 * (i === 0 ? 0.04 : 0.5);
+        const fade = (1 - j / (TRAIL_SAMPLES - 1)) ** 1.7 * 0.3;
         const c = this.colors[i];
         this.trailColors.set([c.r * fade, c.g * fade, c.b * fade, c.r * fade, c.g * fade, c.b * fade], (i * (TRAIL_SAMPLES - 1) + j) * 6);
       }
@@ -166,15 +174,40 @@ export class UniverseView {
 
   update(state: SimulationState): void {
     if (!this.cores) return;
+    const liveBursts = new Set(state.bursts.map(burst => burst.id));
+    for (const [id, flash] of this.flashes) {
+      if (!liveBursts.has(id)) { this.scene.remove(flash); flash.material.dispose(); this.flashes.delete(id); }
+    }
+    for (const burst of state.bursts) {
+      let flash = this.flashes.get(burst.id);
+      if (!flash) {
+        flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.haloTexture, color: new THREE.Color(9, 7, 4), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
+        flash.position.fromArray(burst.position);
+        this.flashes.set(burst.id, flash); this.scene.add(flash);
+      }
+      const age = Math.min(1, (state.time - burst.time) / burstLifetime(state));
+      const strength = Math.cbrt(burst.radiatedMass / (state.initialMass * 0.0002));
+      flash.scale.setScalar(state.settings.radius * strength * (0.12 + 1.3 * age));
+      flash.material.opacity = (1 - age) ** 2;
+    }
     for (let i = 0; i < state.count; i++) {
       this.position.fromArray(state.positions, i * 3);
-      this.scale.setScalar(state.settings.radius * (i === 0 ? 0.028 : 0.0065));
+      const radius = appearance(state.stars[i]).radius;
+      const look = appearance(state.stars[i]);
+      const color = new THREE.Color().setRGB(...look.color as [number, number, number], THREE.SRGBColorSpace);
+      this.cores.setColorAt(i, color.clone().multiplyScalar(look.brightness));
+      this.halos[i].material.color.copy(color);
+      this.scale.setScalar(radius);
+      if (state.masses[i] === 0) this.scale.setScalar(0);
+      this.halos[i].visible = state.masses[i] > 0;
+      this.halos[i].scale.setScalar(radius * 9);
       this.matrix.compose(this.position, this.rotation, this.scale);
       this.cores.setMatrixAt(i, this.matrix);
       this.halos[i].position.copy(this.position);
     }
+    this.cores.instanceColor!.needsUpdate = true;
     this.cores.instanceMatrix.needsUpdate = true;
-    if (state.time - this.lastTrailTime >= 0.004 * Math.sqrt(state.settings.radius ** 3 / state.settings.totalMass)) {
+    if (state.time - this.lastTrailTime >= 0.004 * characteristicTime(state)) {
       this.historyHead = (this.historyHead + 1) % TRAIL_SAMPLES;
       for (let i = 0; i < state.count; i++) this.history.set(state.positions.subarray(i * 3, i * 3 + 3), (i * TRAIL_SAMPLES + this.historyHead) * 3);
       this.lastTrailTime = state.time;
@@ -184,6 +217,7 @@ export class UniverseView {
         const a = (this.historyHead - j + TRAIL_SAMPLES) % TRAIL_SAMPLES;
         const b = (a - 1 + TRAIL_SAMPLES) % TRAIL_SAMPLES;
         const index = (i * (TRAIL_SAMPLES - 1) + j) * 6;
+        if (state.masses[i] === 0) { this.trailPositions.fill(0, index, index + 6); continue; }
         const start = (i * TRAIL_SAMPLES + a) * 3, end = (i * TRAIL_SAMPLES + b) * 3;
         this.trailPositions.set(this.history.subarray(start, start + 3), index);
         this.trailPositions.set(this.history.subarray(end, end + 3), index + 3);
@@ -192,12 +226,18 @@ export class UniverseView {
     this.trails!.geometry.attributes.position.needsUpdate = true;
   }
 
+  select(state: SimulationState, index: number | null): void {
+    this.marker.visible = index !== null;
+    if (index !== null) { this.marker.position.fromArray(state.positions, index * 3); this.marker.scale.setScalar(appearance(state.stars[index]).radius * 6); }
+  }
+
   render(): void { this.pipeline.render(); }
 
   pick(clientX: number, clientY: number, state: SimulationState): number | null {
     const rect = this.canvas.getBoundingClientRect();
     let selected: number | null = null, nearest = 14;
     for (let i = 0; i < state.count; i++) {
+      if (state.masses[i] === 0) continue;
       this.position.fromArray(state.positions, i * 3).project(this.camera);
       if (this.position.z < -1 || this.position.z > 1) continue;
       const x = rect.left + (this.position.x + 1) * rect.width / 2;

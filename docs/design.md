@@ -1,53 +1,40 @@
 # Stellar simulation design
 
-## Confirmed direction
+The [README](../README.md) describes current behaviour. The [accepted spec](pleiades-inspired-cluster-spec.md) replaces the scenario collection with a smaller Pleiades-inspired analogue. Earlier notes in `history/` remain historical.
 
-- Browser-based scene setup and observation with limited interventions; there are no objectives, progression, or win/lose conditions.
-- Newtonian gravity with numerical approximations and documented accuracy limits; scientific measurement reliability is outside the intended scope.
-- Full three-dimensional motion with an orbiting, zooming camera that can follow objects.
-- Laptops are the primary hardware target; high-end desktop hardware cannot be a prerequisite.
-- Gravitating bodies and tracer particles are distinct populations and their counts must be reported separately.
-- Large populations and beautiful spacescapes are goals; achievable population sizes and performance targets remain to be established.
-- The first version has one configurable orbiting-system preset: one dominant, freely moving massive body with smaller bodies orbiting it. Stellar-cloud and colliding-galaxy presets are deferred. Individual object placement is deferred.
-- Ordinary laptops with integrated graphics are the baseline. The default performance target is 30 FPS; larger populations can be experimental settings. The user's Intel Iris Xe laptop is the initial reference device; benchmark conditions and measured population budgets remain open.
-- Close encounters use softened gravity and bodies pass through one another. Collision responses and other cosmic events, including clashes and black holes, are deferred.
-- Interventions may explicitly depart from Newtonian physics, but all interventions are deferred from the first version, including the gravity well, repellors, and wormholes.
-- Time controls include pause, speed adjustment, and reset to repeatable initial conditions. Rewind is deferred.
-- Presentation should be as cinematic as possible: luminous stars, dust, depth, restrained trails, and minimal controls. Rendered sizes and colors prioritize presentation and readability over literal astronomical scale.
-- All functionality runs in the browser, without accounts, multiplayer, or a server. Saving, snapshots, and scene-file export/import are deferred entirely.
-- Space is unbounded: ejected bodies continue traveling without wrapping, bouncing, or automatic removal. A return-to-scene camera action restores orientation.
-- Each preset uses a coherent relative physical scale. Initial controls express relative mass, compactness, and motion; calibrated astronomical units are deferred.
-- Future gravity-well direction, outside the first version: one fixed, removable well with adjustable strength and depth, placed through a visible plane. It attracts objects without swallowing them. Its detailed placement workflow remains undecided.
-- When requested speed exceeds stable calculation capacity, achieved simulation speed decreases and the interface reports that limitation.
-- The default camera moves cinematically around or with the scene. Dragging or zooming immediately takes manual control; an explicit action resumes automatic viewing. Settings use a collapsible panel.
-- Start with 100 gravitating bodies. Larger populations are subsequent measured scaling goals; 10,000 is not a first-version acceptance requirement and 100,000 remains aspirational.
-- Visual quality stays consistent under load. Establish a suitable body count rather than automatically lowering resolution, glow, or other presentation settings. Population changes regenerate the scene rather than silently deleting bodies during evolution.
-- Population, mass distribution, size, and initial-motion edits apply through an explicit Generate scene action. Camera controls and time controls apply immediately.
-- WebGPU is required for the first version, with a clear compatibility message on unsupported devices and no WebGL fallback. The reference laptop's Chrome WebGPU hardware-adapter and compute probe passed; see browser capability notes.
-- The revised first-build boundary is one orbiting-system preset, 100 initial gravitating bodies, no tracers or interventions, 3D softened Newtonian gravity, fixed cinematic quality targeting 30 FPS on the reference laptop, and the agreed camera/time/regeneration controls. Saving, other presets, and cosmic events are deferred.
-- Population changes preserve total scene mass, distributing it among more or fewer bodies. A separate mass control changes total mass; mass distribution determines its division among bodies.
-- Generate scene produces a fresh arrangement with the selected settings. Reset restores the exact initial arrangement of the current scene, restores the starting camera, removes any interventions in future versions, and leaves simulation paused.
-- Automatic camera framing follows the main system rather than expanding to include every escaping body. Clicking an individual gravitating body enables following it; return-to-scene restores the main-system view.
-- Delivery is a static website opened by URL. Simulation runs locally after loading. Installation and guaranteed offline availability are deferred.
+## Ownership and units
 
-## Camera controls
+Physics owns motion, mass, stellar attributes, physical surfaces, effective capture radii, merger identities and events. The bundled stellar model derives properties from the shared 125 Myr reference age and mass. Rendering, display mapping and inspection consume that state; none implements a second physical model. Body slots retain identity after absorption and resolve through the survivor chain. Reset clones arrays, property records and burst positions independently.
 
-Confirmed: left-drag to orbit the current target, scroll or pinch to zoom, right-drag or Shift-drag to pan, and click a body to follow it. Explicit Return to scene and Cinematic camera actions restore main-system framing and automatic viewing respectively. Manual camera movement takes over from automatic viewing. Orbiting or zooming while following a body retains that target; panning releases following. Mouse and laptop trackpad are first-version input targets; touchscreen controls are deferred. A small collapsible hint explains the controls.
+Lengths are pc and masses M☉. G=1 internally means one time unit is `1/sqrt(4.49850215e-15)` years (~14.91 Myr), one velocity unit is pc per that time, converted to km/s with a Julian year. Stellar radii in R☉ convert to pc with `2.25461015e-8`. The UI reports actual dynamical years, not stellar ageing. The frozen population and remnant exception are [attributed](../data/README.md).
 
-## Viewing pace
+## Initial conditions and integration
 
-Default motion should be noticeable within a few seconds, with a representative orbit taking approximately 30–60 seconds. Different orbital distances retain their different periods. Speed controls span 0.25× to 4× and scale simulation time globally; pause is separate.
+The single recipe samples independent continuous stellar masses (Kroupa-like dN/dm slopes 1.3 below 0.5 M☉ and 2.3 above, continuous normalization, truncated at 0.08 and 4.5). This approximates a birth mass function for current masses; it is not a measured present-day Pleiades distribution. MIST current masses are interpolation inputs, avoiding independent arbitrary mass rescaling.
 
-## Performance acceptance
+Positions use the isotropic Plummer inverse radial CDF, rejecting radii above 10 scale lengths (about 1.5% of the infinite model). Conditional velocities use the Plummer distribution `p(q) ∝ q²(1-q²)^(7/2)`, with escape speed at the sampled radius and independent isotropic directions. This is an unsegregated collisionless equilibrium recipe sampled with unequal masses. Remove actual mass-weighted bulk position and velocity, scale the weighted discrete half-mass shell to the requested pc radius, then normalize velocities using `2K=-Σ m r·a` for the actual softened force. There is no relaxation steering during playback. The finite sampling limit is initial only, and COM recentering/rescaling changes its physical extent.
 
-Target 30 FPS on the reference laptop in Chrome with cinematic effects enabled and simulation running at normal speed. The confirmed fixed rendering resolution is 1280×720 (720p), scaled to fit the browser window; controls and text render at the window's native resolution. Visual quality and rendering resolution do not change automatically under load. Optimize first, then agree on a lower regenerated body count if necessary.
+Softening ε=0.001 initial half-mass radii (206 AU at default) regularizes direct forces; timestep is `t_grav/8192`. Softening was reduced tenfold to retain stronger close-range gravity; the timestep was halved because the previous step failed the existing 5% half-mass-radius convergence limit. The smaller step passes the same limits without relaxing tolerances. These choices replace the former relative settings and enormous collision cores. They preserve the large-scale Plummer potential while still suppressing encounters below the softening scale. Accuracy for hard binaries, gravitational focusing and real stellar collision rates is not established. Surface radii remain ~10^-8 pc and are independent of ε and display radii. Swept straight relative segments catch crossings during a leapfrog step, not curved close-encounter trajectories. The measured five-timescale and analytic-orbit [convergence protocol](cluster-validation.md) qualifies the conservative gravity control with enhanced capture disabled. Enhanced mergers explicitly dissipate energy and alter the cluster; they have separate frequency and accounting checks.
 
-## Implementation work
+CPU double-precision direct gravity, leapfrog, WebGPU-only rendering and the stability-first bounded clock preserve the existing architecture decisions. `t_grav=sqrt(r_half³/M_initial)` in solver units sets requested playback to `t_grav/60` per real second at 1×. This convention omits any 2π orbit factor. Initial mass and extent stay fixed as rate references after a merger. Achieved yr/s uses accumulated actual steps divided by measured real time, rather than requested speed. Lifecycle events clear partial-step accumulation and frame timing.
 
-- Select numerical methods and validate them within the accepted approximate-physics and stability boundaries.
-- Implement and measure the orbiting-system preset, camera, scene controls, and cinematic rendering at 720p on the reference laptop.
-- Establish the measured population budget without adding deferred features or automatically reducing visual quality.
+## Mergers and presentation
 
-## Status
+The owner subsequently requested frequent events and authorized enlarged encounter radii, superseding the original physical-contact-only constraint. Each star's effective radius is `max(R_surface, 0.025 r_half (m/(M_initial/N_initial))^(1/3))`. The denominator stays fixed through mergers to avoid global feedback from changing live count; surviving remnants grow their own capture radius with retained mass. The capture boundary scales with the initial scene extent, independently of display and picking. There is no time-scheduled collision, numerical-error trigger, or added steering force. Encounters inside the sum of effective radii coalesce immediately; this represents assumed dissipation, not a physical claim that distant or hyperbolic stars can capture without an energy-loss mechanism. No bound binary or inspiral phase is simulated. The UI identifies enhanced merging and shows the effective radius separately.
 
-The first version is implemented. The user confirmed the first-build boundary and subsequent scope reductions, camera controls, viewing pace, browser-only delivery, and 720p performance target. Seven numerical tests and six Chrome interaction/failure/lifecycle tests pass. A full laptop measurement observed approximately 59.95 FPS at normal simulation speed; the strict cinematic-mode benchmark was not fully satisfied because the camera entered manual mode. The user explicitly accepted the existing performance evidence and requested proceeding without further benchmark gating. See verification notes.
+An inelastic capture or physical-surface intersection retains `m1+m2-0.02 min(m1,m2)` and the original combined centre-of-mass velocity and position. Lost mass carries its proportional momentum; kinetic energy is dissipated, and no detailed radiation energy budget is claimed. The lowest surviving slot absorbs the other; transitive identity resolution handles later mergers. Remnants use `R=R_1 m^0.8`, `L=L_1 m^3.5` anchored at the 1 M☉ isochrone, with T from Stefan–Boltzmann, for any positive retained mass. These finite, uncapped attributes explicitly describe a toy remnant, not the 125 Myr isochrone; detailed hydrodynamics and evolution are unsupported. Flashes fade in simulation time and freeze on pause.
+
+One appearance mapping serves every star: displayed core radius `0.009+0.012 ln(1+R/R☉)` pc, brightness `0.85+0.45 ln(1+L/L☉)`, nine-core-radius glow, continuous temperature colour anchors at 2500, 3700, 5772, 10000 and 20000 K. RGB is an artistic temperature guide, not synthetic filter photometry; colour saturates beyond its displayed temperature interval. A white outline indicates selection. Display size and 14 px picking never enter the solver. Frame the cluster barycentre, with no primary-body privilege. Drag rotation carries the camera up vector through full vertical revolutions; OrbitControls retains zoom and pan. Recenter restores the original orientation. Desktop playback offers a live slider from 0.25× through 100×, with the same bounded work limits and achieved-rate reporting.
+
+## Scope and evidence
+
+Control bounds are 32–1000 bodies and 0.5–2 pc; the default is 100 at 1 pc, seed 125. This is a much smaller isolated analogue than the real Pleiades: its encounter rates, relaxation, escape history and membership must not be attributed to the observed cluster. Only default-scale numerical evidence and the retained functional WebGPU checks are claimed. No new laptop performance benchmark has been run. Work remains local; no publishing is authorized by implementation.
+
+
+## Additional initial-condition scenarios
+
+The later request for selectable scenarios extends the single-cluster scope. `src/scenarios.ts` owns the catalogue and transforms a generated stellar state; the physics integrator and rendering consume the same state as before. Open cluster is unchanged. Cold collapse multiplies velocities by 0.2 (kinetic energy by 0.04). Expanding association adds H r with H=1.5 sqrt(M/r_half³). Both retain the original positions.
+
+Two clusters meeting splits the sampled population by index into two groups, subtracts each group's mass-weighted position and velocity, compresses its positions to 0.25 of the original scale, and offsets the groups by ±r_half along x. Internal velocities are retained after subtracting group bulk motion; each group receives inward speed 0.5 sqrt(M/r_half). The combined system is recentered and rescaled to the requested global half-mass radius. These clumps are deliberately not claimed to be internally equilibrated. All alternatives remove total bulk velocity; accelerations are recomputed after changing positions. Masses and stellar properties are unchanged. Softening, timestep, capture radius and clock use the combined initial mass and extent.
+
+Scenario selection is staged beside the other scene controls. Active name and description update only on Generate. Reset clones the saved initial state and preserves both the active scenario and pending controls. These illustrative experiments do not inherit the Open cluster equilibrium validation or claim realistic encounter outcomes.

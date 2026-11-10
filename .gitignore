@@ -5,3 +5,20 @@ playwright-report/
 .openai/*.local.*
 .openai/*credential*
 *.log
+.test-dist/
+verification-results/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Python data-preparation caches
+__pycache__/
+*.py[cod]
+.venv/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
