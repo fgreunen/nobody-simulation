@@ -31,9 +31,11 @@ Choose a Scenario, then Generate scene. Selection, body count and radius are sta
 - **Open cluster** retains the original near-equilibrium Plummer recipe.
 - **Cold collapse** starts with 20% of the equilibrium velocities, letting gravity draw the stars inward.
 - **Expanding association** adds outward velocity proportional to distance from the centre.
-- **Two clusters meeting** starts two compressed stellar clumps moving toward each other head-on.
+- **Cluster smash** launches two compact stellar clumps into a fast, off-centre collision, with merger flashes and an expanding spray of survivors. At achieved 1×, the main encounter happens around 12 seconds after Generate; higher playback speeds bring it forward.
+- **Rotating cluster** adds a shared spin around the vertical axis.
+- **Flattened cluster** starts with a compressed vertical extent, forming a thin stellar gathering.
 
-The three alternatives are illustrative experiments, not observed systems or equilibrium models. Radius always means the combined initial three-dimensional half-mass radius. Their checks cover deterministic generation, physical scaling, zero bulk motion, finite evolution and mass accounting over one characteristic time for three 32-body seeds, plus short-horizon gravity convergence. The original five-timescale equilibrium evidence applies only to Open cluster; no new performance guarantee is made.
+The five alternatives are illustrative experiments, not observed systems or equilibrium models. Radius always means the combined initial three-dimensional half-mass radius. Their checks cover deterministic generation, physical scaling, zero bulk motion, finite evolution and mass accounting over one characteristic time for three 32-body seeds, plus short-horizon gravity convergence. The original five-timescale equilibrium evidence applies only to Open cluster; no new performance guarantee is made.
 
 ## Physical model and appearance
 

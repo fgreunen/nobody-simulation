@@ -25,7 +25,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <section class="scene-panel" aria-label="Scene settings">
     <div id="settings-content">
       <form id="scene-form"><fieldset id="settings-fields" disabled>
-        <label class="parameter scenario-picker"><span>Scenario</span><select id="scenario" aria-label="Scenario">${SCENARIOS.map(scenario => `<option value="${scenario.id}">${scenario.name}</option>`).join('')}</select></label>
+        <label class="parameter scenario-picker"><span>Scenario:</span><select id="scenario" aria-label="Scenario">${SCENARIOS.map(scenario => `<option value="${scenario.id}">${scenario.name}</option>`).join('')}</select></label>
         <label class="parameter"><span>Bodies <output id="count-value" for="count">100</output></span><input id="count" name="count" type="range" min="32" max="1000" step="1" value="100"><small>Every star contributes to gravity</small></label>
         <label class="parameter"><span>Half-mass radius <output id="radius-value" for="radius">1.00 pc</output></span><input id="radius" name="radius" type="range" min="0.5" max="2" step="0.05" value="1"><small>3D radius enclosing half the initial mass</small></label>
         <button type="submit" class="generate">Generate scene ${icon('arrow')}</button>

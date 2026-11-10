@@ -200,7 +200,7 @@ test('the default cluster visibly merges stars without intervention', async ({ p
 
 test('stages each scenario and applies pending edits only on generation', async ({ page }, testInfo) => {
   await ready(page);
-  for (const id of ['cold-collapse', 'expanding-association', 'cluster-encounter']) {
+  for (const id of ['cold-collapse', 'expanding-association', 'cluster-encounter', 'rotating-cluster', 'flattened-cluster']) {
     const before = await snapshot(page);
     await page.getByLabel('Scenario', { exact: true }).selectOption(id);
     expect((await snapshot(page)).scenario).toBe(before.scenario);
@@ -213,5 +213,33 @@ test('stages each scenario and applies pending edits only on generation', async 
     await page.getByLabel('Scenario', { exact: true }).selectOption('open-cluster');
     expect((await snapshot(page)).scenario).toBe(id);
   }
-  await page.screenshot({ path: testInfo.outputPath('cluster-encounter.png') });
+  await page.screenshot({ path: testInfo.outputPath('flattened-cluster.png') });
+});
+
+test('Cluster smash shows an incoming pair, merger flashes and a scattered aftermath', async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    crypto.getRandomValues = ((array: Uint32Array) => { array.fill(125); return array; }) as typeof crypto.getRandomValues;
+  });
+  await ready(page);
+  await page.getByLabel('Scenario', { exact: true }).selectOption({ label: 'Cluster smash' });
+  await page.getByRole('button', { name: 'Generate scene' }).click();
+  await page.getByRole('button', { name: 'Pause simulation' }).click();
+  expect((await snapshot(page)).scenario).toBe('cluster-encounter');
+  await page.screenshot({ path: testInfo.outputPath('cluster-smash-incoming.png') });
+  await page.getByLabel('Simulation speed', { exact: true }).fill('3');
+  await page.getByRole('button', { name: 'Play simulation' }).click();
+  const elapsed = async () => {
+    const state = await snapshot(page);
+    return state.time * Math.sqrt(state.initialMass / state.settings.radius ** 3);
+  };
+  await expect.poll(elapsed).toBeGreaterThan(0.22);
+  await page.getByRole('button', { name: 'Pause simulation' }).click();
+  const impact = await snapshot(page);
+  expect(impact.mergerCount).toBeGreaterThan(5);
+  expect(impact.bursts.length).toBeGreaterThan(0);
+  await page.screenshot({ path: testInfo.outputPath('cluster-smash-impact.png') });
+  await page.getByRole('button', { name: 'Play simulation' }).click();
+  await expect.poll(elapsed).toBeGreaterThan(0.8);
+  await page.getByRole('button', { name: 'Pause simulation' }).click();
+  await page.screenshot({ path: testInfo.outputPath('cluster-smash-aftermath.png') });
 });

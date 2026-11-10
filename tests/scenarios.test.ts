@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { SCENARIOS, createScenario } from '../src/scenarios';
-import { cloneState, createScene, energy, halfMassRadius, step } from '../src/physics';
+import { calculateAccelerations, cloneState, createScene, energy, halfMassRadius, step } from '../src/physics';
 
 it('keeps the original open cluster unchanged', () => {
   expect(createScenario({ count: 100, radius: 1 }, 125, 'open-cluster')).toEqual(createScene());
@@ -61,5 +61,63 @@ it('starts collapse, expansion and approach in the described directions', () => 
     const after = id === 'cluster-encounter' ? separation() : halfMassRadius(state);
     if (id === 'expanding-association') expect(after).toBeGreaterThan(before);
     else expect(after).toBeLessThan(before);
+  }
+});
+
+it('adds angular momentum around the rotating cluster’s vertical axis', () => {
+  for (const seed of [125, 42, 731]) {
+    const original = createScene({ count: 100, radius: 1 }, seed);
+    const rotating = createScenario(original.settings, seed, 'rotating-cluster');
+    const angularMomentum = (state: typeof original) => state.masses.reduce((sum, mass, i) =>
+      sum + mass * (state.positions[3 * i + 2] * state.velocities[3 * i] - state.positions[3 * i] * state.velocities[3 * i + 2]), 0);
+    expect(rotating.positions).toEqual(original.positions);
+    expect(angularMomentum(rotating)).toBeGreaterThan(Math.abs(angularMomentum(original)));
+  }
+});
+
+it('smashes distinct off-centre clumps together quickly and leaves an expanding aftermath', () => {
+  for (const seed of [125, 42, 731]) {
+    const state = createScenario({ count: 100, radius: 1 }, seed, 'cluster-encounter');
+    const centers = [0, 50].map(start => {
+      const center = [0, 0, 0];
+      let mass = 0;
+      for (let i = start; i < start + 50; i++) {
+        mass += state.masses[i];
+        for (let a = 0; a < 3; a++) center[a] += state.masses[i] * state.positions[3 * i + a];
+      }
+      return center.map(x => x / mass);
+    });
+    expect(centers[0][0]).toBeLessThan(-0.5);
+    expect(centers[1][0]).toBeGreaterThan(0.5);
+    expect(Math.abs(centers[1][2] - centers[0][2])).toBeGreaterThan(0.1);
+    const radii: number[] = [], mergers: number[] = [];
+    for (let frame = 0; frame < 4; frame++) {
+      for (let i = 0; i < 2048; i++) step(state);
+      radii.push(halfMassRadius(state)); mergers.push(state.mergerCount);
+    }
+    expect(radii[0]).toBeLessThan(0.6);
+    expect(radii[3]).toBeGreaterThan(2);
+    expect(mergers[1]).toBeGreaterThanOrEqual(5);
+    expect([...state.positions, ...state.velocities].every(Number.isFinite)).toBe(true);
+    expect(state.masses.reduce((sum, m) => sum + m, 0) + state.radiatedMass).toBeCloseTo(state.initialMass, 10);
+  }
+});
+
+it('flattens the vertical extent and initializes gravity for the changed positions', () => {
+  for (const seed of [125, 42, 731]) {
+    const original = createScene({ count: 100, radius: 1 }, seed);
+    const flattened = createScenario(original.settings, seed, 'flattened-cluster');
+    const thickness = (state: typeof original) => {
+      let vertical = 0, planar = 0;
+      for (let i = 0; i < state.count; i++) {
+        vertical += state.masses[i] * state.positions[3 * i + 1] ** 2;
+        planar += state.masses[i] * (state.positions[3 * i] ** 2 + state.positions[3 * i + 2] ** 2);
+      }
+      return Math.sqrt(vertical / planar);
+    };
+    expect(thickness(flattened) / thickness(original)).toBeCloseTo(0.35, 12);
+    const recalculated = cloneState(flattened);
+    calculateAccelerations(recalculated);
+    expect(flattened.accelerations).toEqual(recalculated.accelerations);
   }
 });
