@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { SCENARIOS, createScenario } from '../src/scenarios';
 import { calculateAccelerations, cloneState, createScene, energy, halfMassRadius, step } from '../src/physics';
+import { mergerProperties } from '../src/stellar';
 
 it('keeps the original open cluster unchanged', () => {
   expect(createScenario({ count: 100, radius: 1 }, 125, 'open-cluster')).toEqual(createScene());
@@ -12,7 +13,10 @@ for (const scenario of SCENARIOS.slice(1)) {
       const settings = { count: 32, radius: 1 };
       const state = createScenario(settings, seed, scenario.id);
       expect(state).toEqual(createScenario(settings, seed, scenario.id));
-      expect(state.stars).toEqual(createScene(settings, seed).stars);
+      const original = createScene(settings, seed);
+      const start = scenario.id === 'runaway-intruder' ? 1 : 0;
+      expect(state.stars.slice(start)).toEqual(original.stars.slice(start));
+      expect(state.masses.slice(start)).toEqual(original.masses.slice(start));
       expect(halfMassRadius(state)).toBeCloseTo(1, 12);
       for (const values of [state.positions, state.velocities]) for (let a = 0; a < 3; a++) {
         expect(state.masses.reduce((sum, m, i) => sum + m * values[3 * i + a], 0)).toBeCloseTo(0, 11);
@@ -120,4 +124,29 @@ it('flattens the vertical extent and initializes gravity for the changed positio
     calculateAccelerations(recalculated);
     expect(flattened.accelerations).toEqual(recalculated.accelerations);
   }
+});
+
+it.each([125, 42, 731])('sends a massive remnant through the core and disrupts its neighbours (seed %i)', seed => {
+  const state = createScenario({ count: 100, radius: 1 }, seed, 'runaway-intruder');
+  const intruderMass = state.masses[0];
+  expect(intruderMass / state.initialMass).toBeCloseTo(1 / 3, 12);
+  expect(state.stars[0]).toEqual(mergerProperties(intruderMass));
+  expect(state.timestep).toBeCloseTo(Math.sqrt(1 / state.initialMass) / 8192, 15);
+  const control = cloneState(state);
+  control.masses[0] = 0; control.activeCount--;
+  calculateAccelerations(control);
+  const initial = state.positions[0];
+  for (let i = 0; i < 4096; i++) { step(state); step(control); }
+  const velocityScale = Math.sqrt(state.initialMass);
+  let disturbed = 0;
+  for (let i = 1; i < state.count; i++) {
+    if (state.masses[i] > 0 && control.masses[i] > 0
+      && Math.hypot(...[0, 1, 2].map(a => state.velocities[3 * i + a] - control.velocities[3 * i + a])) > 0.2 * velocityScale) disturbed++;
+  }
+  expect(state.positions[0]).toBeGreaterThan(initial + 1);
+  expect(state.masses[0]).toBeGreaterThan(intruderMass);
+  expect(disturbed).toBeGreaterThanOrEqual(3);
+  expect(state.bursts.length).toBeGreaterThan(0);
+  expect([...state.positions, ...state.velocities, ...state.accelerations].every(Number.isFinite)).toBe(true);
+  expect(state.masses.reduce((sum, m) => sum + m, 0) + state.radiatedMass).toBeCloseTo(state.initialMass, 10);
 });

@@ -26,16 +26,17 @@ The initial half-mass radius encloses half the generated mass about its centre o
 
 ## Selectable scenarios
 
-Choose a Scenario, then Generate scene. Selection, body count and radius are staged; Reset restores the active realization and leaves pending edits intact. All scenarios share the same frozen stellar population, gravity, enhanced merging, inspector and playback controls.
+Choose a Scenario, then Generate scene. Selection, body count and radius are staged; Reset restores the active realization and leaves pending edits intact. All scenarios share gravity, enhanced merging, inspector and playback controls. Runaway intruder replaces one sampled star with an already-formed massive merger remnant; the other stars retain the frozen stellar population.
 
 - **Open cluster** retains the original near-equilibrium Plummer recipe.
 - **Cold collapse** starts with 20% of the equilibrium velocities, letting gravity draw the stars inward.
 - **Expanding association** adds outward velocity proportional to distance from the centre.
 - **Cluster smash** launches two compact stellar clumps into a fast, off-centre collision, with merger flashes and an expanding spray of survivors. At achieved 1×, the main encounter happens around 12 seconds after Generate; higher playback speeds bring it forward.
+- **Runaway intruder** sends a blue-white merger remnant through a slow-moving cluster core, capturing stars, triggering flashes and leaving a scattered wake. The intruder starts with one third of the combined mass and reaches the core around 13 seconds at achieved 1×. Its properties use the same toy remnant approximation as new mergers.
 - **Rotating cluster** adds a shared spin around the vertical axis.
 - **Flattened cluster** starts with a compressed vertical extent, forming a thin stellar gathering.
 
-The five alternatives are illustrative experiments, not observed systems or equilibrium models. Radius always means the combined initial three-dimensional half-mass radius. Their checks cover deterministic generation, physical scaling, zero bulk motion, finite evolution and mass accounting over one characteristic time for three 32-body seeds, plus short-horizon gravity convergence. The original five-timescale equilibrium evidence applies only to Open cluster; no new performance guarantee is made.
+The six alternatives are illustrative experiments, not observed systems or equilibrium models. Radius always means the combined initial three-dimensional half-mass radius, including the intruder where present. Their checks cover deterministic generation, physical scaling, zero bulk motion, finite evolution and mass accounting over one characteristic time for three 32-body seeds, plus short-horizon gravity convergence. The original five-timescale equilibrium evidence applies only to Open cluster; no new performance guarantee is made.
 
 ## Physical model and appearance
 

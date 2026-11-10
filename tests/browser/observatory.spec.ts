@@ -200,7 +200,7 @@ test('the default cluster visibly merges stars without intervention', async ({ p
 
 test('stages each scenario and applies pending edits only on generation', async ({ page }, testInfo) => {
   await ready(page);
-  for (const id of ['cold-collapse', 'expanding-association', 'cluster-encounter', 'rotating-cluster', 'flattened-cluster']) {
+  for (const id of ['cold-collapse', 'expanding-association', 'cluster-encounter', 'runaway-intruder', 'rotating-cluster', 'flattened-cluster']) {
     const before = await snapshot(page);
     await page.getByLabel('Scenario', { exact: true }).selectOption(id);
     expect((await snapshot(page)).scenario).toBe(before.scenario);
@@ -242,4 +242,35 @@ test('Cluster smash shows an incoming pair, merger flashes and a scattered after
   await expect.poll(elapsed).toBeGreaterThan(0.8);
   await page.getByRole('button', { name: 'Pause simulation' }).click();
   await page.screenshot({ path: testInfo.outputPath('cluster-smash-aftermath.png') });
+});
+
+test('Runaway intruder crosses the core, gains mass and leaves a glowing wake', async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    crypto.getRandomValues = ((array: Uint32Array) => { array.fill(125); return array; }) as typeof crypto.getRandomValues;
+  });
+  await ready(page);
+  await page.getByLabel('Scenario', { exact: true }).selectOption({ label: 'Runaway intruder' });
+  await page.getByRole('button', { name: 'Generate scene' }).click();
+  await page.getByRole('button', { name: 'Pause simulation' }).click();
+  const incoming = await snapshot(page);
+  expect(incoming.scenario).toBe('runaway-intruder');
+  expect(incoming.stars[0].kind).toBe('merger remnant');
+  await page.screenshot({ path: testInfo.outputPath('runaway-intruder-incoming.png') });
+  await page.getByLabel('Simulation speed', { exact: true }).fill('3');
+  await page.getByRole('button', { name: 'Play simulation' }).click();
+  const elapsed = async () => {
+    const state = await snapshot(page);
+    return state.time * Math.sqrt(state.initialMass / state.settings.radius ** 3);
+  };
+  await expect.poll(elapsed).toBeGreaterThan(0.3);
+  await page.getByRole('button', { name: 'Pause simulation' }).click();
+  const impact = await snapshot(page);
+  expect(impact.masses[0]).toBeGreaterThan(incoming.masses[0]);
+  expect(impact.positions[0]).toBeGreaterThan(incoming.positions[0] + 1);
+  expect(impact.bursts.length).toBeGreaterThan(0);
+  await page.screenshot({ path: testInfo.outputPath('runaway-intruder-impact.png') });
+  await page.getByRole('button', { name: 'Play simulation' }).click();
+  await expect.poll(elapsed).toBeGreaterThan(0.65);
+  await page.getByRole('button', { name: 'Pause simulation' }).click();
+  await page.screenshot({ path: testInfo.outputPath('runaway-intruder-aftermath.png') });
 });
