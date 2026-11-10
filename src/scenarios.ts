@@ -1,7 +1,7 @@
 import { calculateAccelerations, createScene, halfMassRadius, type SceneSettings, type SimulationState } from './physics';
 
 export const SCENARIOS = [
-  { id: 'open-cluster', name: 'Open cluster', description: 'A near-equilibrium cluster, inspired by the Pleiades.' },
+  { id: 'open-cluster', name: 'Open cluster', description: '' },
   { id: 'cold-collapse', name: 'Cold collapse', description: 'Slow initial motions let gravity pull the cluster inward.' },
   { id: 'expanding-association', name: 'Expanding association', description: 'Outward motion disperses a gathering of stars.' },
   { id: 'cluster-encounter', name: 'Two clusters meeting', description: 'Two stellar clumps approach head-on under mutual gravity.' },

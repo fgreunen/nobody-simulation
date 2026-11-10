@@ -6,10 +6,10 @@ async function ready(page: Page) {
   await expect(page.locator('html')).toHaveAttribute('data-ready', 'true', { timeout: 30000 });
 }
 
-test('inspects a star, transfers the inspector after contact, and exactly resets', async ({ page }, testInfo) => {
+test('inspects a star, transfers the inspector after contact, and generates a fresh scene', async ({ page }, testInfo) => {
   await ready(page);
-  await page.getByRole('button', { name: 'Reset', exact: true }).click();
-  const initial = await snapshot(page);
+  await expect(page.getByRole('complementary', { name: 'Selected star' })).toBeHidden();
+  await page.getByRole('button', { name: 'Pause simulation', exact: true }).click();
   await expect(page.getByRole('navigation', { name: 'Scenarios' })).toHaveCount(0);
   await expect(page.locator('#mass, #share, #motion, #approach, #offset, #compactness')).toHaveCount(0);
   await page.evaluate(() => (window as any).__observatory.setBody(1, [0, 0.3, 0], [0, 0, 0]));
@@ -29,28 +29,37 @@ test('inspects a star, transfers the inspector after contact, and exactly resets
   await page.getByRole('button', { name: 'Pause simulation' }).click();
   expect((await snapshot(page)).following).toBe(0);
   await expect(inspector).toContainText('merger remnant'); await expect(inspector).toContainText('Star 1');
-  await page.getByRole('button', { name: 'Reset', exact: true }).click();
-  const reset = await snapshot(page);
-  expect(reset.positions).toEqual(initial.positions); expect(reset.masses).toEqual(initial.masses); expect(reset.stars).toEqual(initial.stars);
-  expect(reset.activeCount).toBe(100); expect(reset.bursts).toEqual([]); expect(reset.radiatedMass).toBe(0);
+  await page.getByRole('button', { name: 'Generate scene' }).click();
+  expect((await snapshot(page)).following).toBe(null);
+  await expect(inspector).toBeHidden();
 });
 
 test('renders WebGPU at fixed 720p with no page errors', async ({ page }, testInfo) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await ready(page);
+  await expect(page.locator('.scene-panel h1, .intro, .scene-coordinate')).toHaveCount(0);
+  await expect(page.getByText('STELLAR PORTRAIT', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('About these scenarios', { exact: true })).toHaveCount(0);
   await expect(page.locator('canvas')).toHaveAttribute('width', '1280');
   await expect(page.locator('canvas')).toHaveAttribute('height', '720');
   await expect(page.getByRole('button', { name: 'Pause simulation' })).toBeEnabled();
   expect((await snapshot(page)).count).toBe(100);
   await page.screenshot({ path: testInfo.outputPath('curated-cluster.png') });
-  await expect(page.locator('#rate')).toContainText('yr/s');
+  await expect(page.locator('#elapsed, .population-mass')).toHaveCount(0);
+  await expect(page.locator('#rate > span')).toHaveText([/^Requested: [\d,.\s]+ kyr\/s$/, /^Achieved: [\d,.\s]+ kyr\/s$/]);
+  await expect(page.locator('header #rate')).toBeVisible();
+  await expect(page.locator('header .status-stats')).toBeVisible();
+  await expect(page.locator('header .metrics-divider')).toBeVisible();
+  await expect(page.locator('footer .status-stats')).toHaveCount(0);
   const cameraControls = page.locator('footer').getByRole('navigation', { name: 'Camera controls' });
-  const sceneControls = page.getByRole('group', { name: 'Simulation controls' });
-  await expect(sceneControls.getByRole('button', { name: 'Reset', exact: true })).toBeVisible();
+  await expect(page.locator('#reset, #settings-toggle')).toHaveCount(0);
+  await expect(page.getByText('THE INITIAL CONDITIONS', { exact: true })).toHaveCount(0);
+  await expect(page.locator('header #scene-form')).toBeVisible();
+  const headerGroups = await page.locator('header > .brand, header > .scene-panel, header > .header-metrics').evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; }));
+  expect(Math.max(...headerGroups.map(r => r.top))).toBeLessThan(Math.min(...headerGroups.map(r => r.bottom)));
   await expect(cameraControls.getByRole('button', { name: 'Pause simulation' })).toBeVisible();
   await expect(cameraControls.getByLabel('Simulation speed')).toBeVisible();
-  await expect(sceneControls.locator('#pause, #speed')).toHaveCount(0);
   await expect(cameraControls.locator('#reset, #first-person')).toHaveCount(0);
   await expect(page.locator('#first-person')).toHaveCount(0);
   const help = cameraControls.getByRole('button', { name: 'How to explore' });
@@ -64,12 +73,16 @@ test('renders WebGPU at fixed 720p with no page errors', async ({ page }, testIn
   await expect(cameraControls.getByText('Orbit around the scene')).toBeHidden();
   await page.waitForTimeout(1500);
   expect((await snapshot(page)).time).toBeGreaterThan(0);
+  await page.getByRole('button', { name: 'Pause simulation' }).click();
+  await expect(page.locator('#achieved-rate')).toHaveText('0 kyr/s');
+  await expect(page.locator('#achieved-rate')).toHaveClass('below-requested');
+  await expect(page.locator('#achieved-rate')).toHaveCSS('color', 'rgb(239, 182, 109)');
   expect(errors).toEqual([]);
 });
 
-test('stages scene settings, generates a new seed, and exactly resets positions', async ({ page }) => {
+test('stages scene settings and generates fresh scenes with new seeds', async ({ page }) => {
   await ready(page);
-  await page.getByRole('button', { name: 'Reset', exact: true }).click();
+  await page.getByRole('button', { name: 'Pause simulation', exact: true }).click();
   const before = await snapshot(page);
   await expect(page.locator('#count')).toHaveAttribute('max', '1000');
   await page.locator('#count').fill('64');
@@ -83,22 +96,13 @@ test('stages scene settings, generates a new seed, and exactly resets positions'
   expect(generated.activeCount).toBeGreaterThan(0);
   expect(generated.seed).not.toBe(before.seed);
   expect(generated.masses.reduce((a: number, b: number) => a + b, 0) + generated.radiatedMass).toBeCloseTo(generated.initialMass, 12);
-  const initial = await page.evaluate(() => {
-    document.getElementById('reset')!.click();
-    return (window as any).__observatory.snapshot();
-  });
-  await page.getByRole('button', { name: 'Play simulation' }).click();
-  await page.waitForTimeout(300);
-  const reset = await page.evaluate(() => {
-    document.getElementById('reset')!.click();
-    return (window as any).__observatory.snapshot();
-  });
-  expect(reset.positions).toEqual(initial.positions);
-  expect(reset.velocities).toEqual(initial.velocities);
-  // Capture reset and pose synchronously, before cinematic viewing resumes.
-  for (let axis = 0; axis < 3; axis++) expect(reset.camera[axis]).toBeCloseTo(initial.camera[axis], 3);
-  expect(reset.paused).toBe(true);
-  expect(reset.time).toBe(0);
+  await page.getByRole('button', { name: 'Generate scene' }).click();
+  const regenerated = await snapshot(page);
+  expect(regenerated.seed).not.toBe(generated.seed);
+  expect(regenerated.count).toBe(64);
+  expect(regenerated.paused).toBe(false);
+  expect(regenerated.following).toBe(null);
+
 });
 
 test('pause and speed work while camera takeover, follow, pan and recenter remain independent', async ({ page }) => {
@@ -108,14 +112,17 @@ test('pause and speed work while camera takeover, follow, pan and recenter remai
   await page.waitForTimeout(150);
   expect((await snapshot(page)).time).toBe(paused.time);
   const speed = page.getByRole('slider', { name: 'Simulation speed', exact: true });
-  await expect(speed).toHaveAttribute('min', '0.25'); await expect(speed).toHaveAttribute('max', '100');
+  await expect(speed).toHaveAttribute('min', '1'); await expect(speed).toHaveAttribute('max', '100');
+  await expect(speed).toHaveAttribute('step', '1');
   await speed.fill('10'); expect((await snapshot(page)).speed).toBe(10);
   await expect(page.locator('#speed-value')).toHaveText('10×');
   await speed.focus(); await page.keyboard.press('End');
   expect((await snapshot(page)).speed).toBe(100);
   await expect(page.locator('#speed-value')).toHaveText('100×');
   await expect(speed).toHaveAttribute('aria-valuetext', '100×');
-  await page.keyboard.press('Home'); expect((await snapshot(page)).speed).toBe(0.25);
+  await page.keyboard.press('Home'); expect((await snapshot(page)).speed).toBe(1);
+  await page.keyboard.press('ArrowRight'); expect((await snapshot(page)).speed).toBe(2);
+  await expect(page.locator('#speed-value')).toHaveText('2×');
   await speed.fill('100');
   const canvas = page.locator('canvas');
   const rect = (await canvas.boundingBox())!;
@@ -158,7 +165,7 @@ test('shows a reload action when the graphics device is lost', async ({ page }) 
 
 test('desktop vertical drags keep orbiting through both poles', async ({ page }) => {
   await ready(page);
-  await page.getByRole('button', { name: 'Reset', exact: true }).click();
+  await page.getByRole('button', { name: 'Pause simulation', exact: true }).click();
   let before = await snapshot(page);
   const distance = (a: number[], b: number[]) => Math.hypot(...a.map((v, i) => v - b[i]));
   const radius = distance(before.camera, before.target);
@@ -180,7 +187,6 @@ test('desktop vertical drags keep orbiting through both poles', async ({ page })
 
 test('the default cluster visibly merges stars without intervention', async ({ page }, testInfo) => {
   await ready(page);
-  await expect(page.getByRole('complementary', { name: 'Selected star' })).toContainText('Enhanced mergers');
   await expect.poll(async () => (await snapshot(page)).mergerCount, { timeout: 15000 }).toBeGreaterThan(0);
   await page.getByRole('button', { name: 'Pause simulation' }).click();
   const merged = await snapshot(page);
@@ -192,34 +198,20 @@ test('the default cluster visibly merges stars without intervention', async ({ p
 });
 
 
-test('stages each scenario and resets the generated realization while preserving pending edits', async ({ page }, testInfo) => {
+test('stages each scenario and applies pending edits only on generation', async ({ page }, testInfo) => {
   await ready(page);
-  await page.getByRole('button', { name: 'Reset', exact: true }).click();
-  for (const [id, name] of [['cold-collapse', 'Cold collapse'], ['expanding-association', 'Expanding association'], ['cluster-encounter', 'Two clusters meeting']]) {
+  for (const id of ['cold-collapse', 'expanding-association', 'cluster-encounter']) {
     const before = await snapshot(page);
     await page.getByLabel('Scenario', { exact: true }).selectOption(id);
     expect((await snapshot(page)).scenario).toBe(before.scenario);
-    await expect(page.locator('#form-note')).toContainText('New settings');
+    await expect(page.locator('#form-note')).toHaveCount(0);
     await page.getByRole('button', { name: 'Generate scene' }).click();
-    expect((await snapshot(page)).scenario).toBe(id);
-    await expect(page.locator('.preset strong')).toHaveText(name);
-    const initial = await page.evaluate(() => {
-      document.getElementById('reset')!.click();
-      return (window as any).__observatory.snapshot();
-    });
-    await page.getByRole('button', { name: 'Play simulation' }).click();
-    await expect.poll(async () => (await snapshot(page)).time).toBeGreaterThan(0);
+    const generated = await snapshot(page);
+    expect(generated.scenario).toBe(id);
+    expect(generated.seed).not.toBe(before.seed);
+    expect(generated.paused).toBe(false);
     await page.getByLabel('Scenario', { exact: true }).selectOption('open-cluster');
-    const reset = await page.evaluate(() => {
-      document.getElementById('reset')!.click();
-      return (window as any).__observatory.snapshot();
-    });
-    expect(reset.positions).toEqual(initial.positions);
-    expect(reset.velocities).toEqual(initial.velocities);
-    expect(reset.scenario).toBe(id);
-    expect(reset.paused).toBe(true);
-    await expect(page.getByLabel('Scenario', { exact: true })).toHaveValue('open-cluster');
+    expect((await snapshot(page)).scenario).toBe(id);
   }
-  await page.getByLabel('Scenario', { exact: true }).selectOption('cluster-encounter');
   await page.screenshot({ path: testInfo.outputPath('cluster-encounter.png') });
 });

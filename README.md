@@ -18,7 +18,7 @@ For a production build, run `npm run build`, then `npm run preview -- --port 518
 - Left-drag to orbit continuously through a full vertical revolution; scroll or pinch to zoom; right-drag or Shift-drag to pan.
 - Click a star to inspect its category, descriptive spectral subtype, mass (M☉), physical radius (R☉), temperature (K), and luminosity (L☉), while following its motion. Orbit and zoom retain following; pan releases it. A white ring marks selection without recolouring the star.
 - Recenter restores cluster framing. Cinematic resumes automatic viewing. The question-mark button explains gestures and supports keyboard activation.
-- Pause freezes motion and merger flashes while the camera remains usable. Playback ranges from 0.25× to 100× using a live slider.
+- Pause freezes motion and merger flashes while the camera remains usable. Playback ranges from 1× to 100× in whole-number steps using a live slider.
 - Body count (32–1,000) and 3D half-mass radius (0.5–2 pc) are staged until Generate scene. Generate produces a seed-based variation of the same structural recipe and starts playback. Total initial mass is calculated from the population and shown read-only.
 - Reset restores an independent copy of the current realization's exact original motion, properties, identities, and merger state, resets the camera, and pauses. Pending control edits remain staged.
 

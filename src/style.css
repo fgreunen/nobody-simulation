@@ -45,9 +45,43 @@
 .scene-coordinate{top:112px}.population-mass{font-size:14px;color:#9eacb7}.population-mass b{font-weight:500;color:#d8e3e5}
 .inspector{position:absolute;right:36px;top:165px;width:255px;background:#071019d9;border:1px solid var(--border);border-radius:7px;padding:18px;font-size:14px;line-height:1.7;max-height:calc(100dvh - 270px);overflow:auto}
 .inspector h2{font-weight:400;margin:12px 0 0;font-size:23px}.inspector p{color:#9aabb6;font-size:12px}.inspector dl{display:grid;grid-template-columns:1fr auto;gap:8px;font-size:13px}.inspector dt{color:#9aabb6}.inspector dd{margin:0;font-variant-numeric:tabular-nums}.inspector summary{cursor:pointer;color:#b9d2d6}
-.physical-clock{position:absolute;left:36px;bottom:88px;display:flex;flex-direction:column;gap:5px;font-size:13px;color:#b8ccd0;pointer-events:none}.physical-clock small{color:#8b9faa;font-size:11px}
-@media(max-width:1200px){.physical-clock{bottom:112px}}
+.physical-clock{margin-left:auto;flex-shrink:0;text-align:right;font-size:13px;color:#b8ccd0;font-variant-numeric:tabular-nums;white-space:nowrap}
 @media(max-width:850px){.scene-panel{top:94px;left:24px;width:230px;max-height:calc(100dvh - 275px)}.inspector{right:24px;top:94px;width:230px}.scene-coordinate{display:none}}
-@media(max-width:600px){.scene-panel{left:18px;top:84px;width:190px;max-height:calc(55dvh - 84px)}.scene-panel h1{font-size:25px}.inspector{top:55dvh;left:18px;right:auto;width:calc(100vw - 36px);max-height:calc(45dvh - 185px);padding:10px 14px}.inspector h2{font-size:18px;margin:0}.inspector dl{gap:3px;margin:4px 0}.physical-clock{left:18px;bottom:123px;font-size:11px}.physical-clock small{display:none}}
+@media(max-width:600px){.scene-panel{left:18px;top:84px;width:190px;max-height:calc(55dvh - 84px)}.scene-panel h1{font-size:25px}.inspector{top:55dvh;left:18px;right:auto;width:calc(100vw - 36px);max-height:calc(45dvh - 185px);padding:10px 14px}.inspector h2{font-size:18px;margin:0}.inspector dl{gap:3px;margin:4px 0}.physical-clock{font-size:11px}}
 
 .scenario-picker select{width:100%;padding:9px 10px;color:#d8e3e5;background:#101b25;border:1px solid var(--border);border-radius:5px;margin-bottom:4px}
+.physical-clock .below-requested,.status-stats b.below-target{color:#efb66d;font-weight:600}
+.physical-clock #rate{display:flex;flex-direction:column;gap:5px}
+.header-metrics{margin-left:auto;display:flex;align-items:center;gap:24px}
+.header-metrics .physical-clock{margin-left:0}
+.metrics-divider{width:1px;height:34px;background:var(--border);flex-shrink:0}
+.header-metrics .status-stats{flex-direction:column;align-items:flex-end;gap:3px;font-size:11px;letter-spacing:.06em;color:#8b9faa}
+@media(max-width:850px){.header-metrics{gap:12px}.header-metrics .status-stats{flex-direction:column;align-items:flex-end;gap:3px}.topbar{gap:16px}}
+
+/* A single, horizontally scrollable header keeps every control in one row. */
+.topbar{height:auto;min-height:106px;display:flex;flex-wrap:nowrap;gap:20px;padding:16px 24px;background:#060a10ed;overflow-x:auto}
+.topbar .brand{flex-shrink:0;font-size:17px;gap:10px}
+.topbar .brand-sub{font-size:9px}
+.topbar .scene-panel{position:static;order:1;flex:1 0 630px;width:auto;max-height:none;overflow:visible;padding:0 0 0 20px;border-left:1px solid var(--border);background:none;display:flex;gap:16px;align-items:center}
+.scene-panel #settings-content{display:contents}
+.scene-panel #scene-form{flex:1;position:relative;min-width:0}
+.scene-panel fieldset{display:grid;grid-template-columns:minmax(160px,1.2fr) minmax(115px,1fr) minmax(140px,1fr) auto;gap:16px;align-items:center}
+.scene-panel .parameter{margin:0;min-width:0}
+.scene-panel .parameter + .parameter{border-left:1px solid var(--border);padding-left:16px}
+.scene-panel .parameter small{font-size:10px}
+.scene-panel .generate{width:auto;white-space:nowrap;gap:8px;font-size:12px}
+.scene-panel .form-note{position:absolute;top:100%;left:16px;text-align:left;margin:4px 0 0;font-size:10px}
+.scene-panel .form-note:empty{display:none}
+.topbar .header-metrics{order:2;flex-shrink:0;margin-left:0;border-left:1px solid var(--border);padding-left:20px;gap:16px}
+.inspector{top:140px;max-height:calc(100dvh - 240px)}
+
+/* Shared type scale for controls, readouts, and supporting text. */
+:root{font-family:"Segoe UI",Arial,sans-serif;--text-ui:13px;--text-small:11px;--text-title:18px;font-size:var(--text-ui);line-height:1.5}
+.topbar .brand{font-size:var(--text-title);font-weight:600}
+.topbar .brand-sub{font-size:var(--text-small);font-weight:500;line-height:1.4;letter-spacing:.12em}
+.parameter>span,.parameter output,.scenario-picker select,.scene-panel .generate,.toolbar button,.speed-control output,.physical-clock,.header-metrics .status-stats,.inspector,.inspector dl,.controls-hint,.controls-hint p{font-size:var(--text-ui);line-height:1.5;letter-spacing:normal}
+.parameter>span,.scenario-picker select,.toolbar button,.physical-clock,.header-metrics .status-stats,.inspector{font-weight:400}
+.parameter output,.status-stats b,.scene-panel .generate,.controls-hint b{font-weight:600}
+.scene-panel .parameter small,.speed-control>span,.inspector p,.controls-hint .hint-note{font-size:var(--text-small);line-height:1.5;letter-spacing:normal}
+.inspector h2{font-size:var(--text-title);font-weight:600;line-height:1.4}
+.status-stats b,.parameter output,.speed-control output,.physical-clock,.inspector dd{font-variant-numeric:tabular-nums}

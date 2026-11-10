@@ -1,6 +1,6 @@
 import './style.css';
 import { CameraRig } from './camera';
-import { DEFAULT_SETTINGS, DEFAULT_SEED, inspectBody, unitsToYears, calculateAccelerations, SimulationClock, cloneState, createScene } from './physics';
+import { DEFAULT_SETTINGS, DEFAULT_SEED, inspectBody, unitsToYears, calculateAccelerations, SimulationClock, createScene } from './physics';
 import { UniverseView } from './universe';
 import { SCENARIOS, createScenario, type ScenarioId } from './scenarios';
 
@@ -16,43 +16,38 @@ const icon = (name: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="cur
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <main class="observatory">
   <div id="viewport" class="viewport"><div class="vignette"></div></div>
-  <header class="topbar"><a class="brand" href="./" aria-label="Nobody stellar observatory">${icon('orbit')}<span>NOBODY<span class="brand-sub">STELLAR OBSERVATORY</span></span></a></header>
+  <header class="topbar"><a class="brand" href="./" aria-label="Nobody stellar observatory">${icon('orbit')}<span>NOBODY<span class="brand-sub">STELLAR<br>OBSERVATORY</span></span></a>
+    <div class="header-metrics">
+      <div class="physical-clock" title="kyr = 1,000 years"><div id="rate"><span>Requested: <span id="requested-rate"></span></span><span>Achieved: <span id="achieved-rate"></span></span></div></div>
+      <span class="metrics-divider" aria-hidden="true"></span>
+      <span class="status-stats"><span><b id="body-count">100</b> BODIES</span><span><b id="merger-count">0</b> MERGERS</span><span><b id="fps">—</b> FPS</span></span>
+    </div>
   <section class="scene-panel" aria-label="Scene settings">
-    <div class="panel-heading"><span class="eyebrow">THE INITIAL CONDITIONS</span><button id="settings-toggle" class="icon-button" aria-label="Collapse scene settings" aria-expanded="true" aria-controls="settings-content">${icon('sliders')}</button></div>
     <div id="settings-content">
-      <h1>Born together.<br>Moving freely.</h1>
-      <p class="intro"><span id="intro-count">100 stars.</span> One shared gravity.<br><span id="scene-description">A near-equilibrium cluster, inspired by the Pleiades.</span></p>
-      <div class="preset"><span class="preset-icon">${icon('orbit')}</span><span><strong>Open cluster</strong><small>125 MILLION YEARS · STELLAR SNAPSHOT</small></span></div>
       <form id="scene-form"><fieldset id="settings-fields" disabled>
-        <label class="parameter scenario-picker"><span>Scenario</span><select id="scenario" aria-label="Scenario" aria-describedby="scenario-description">${SCENARIOS.map(scenario => `<option value="${scenario.id}">${scenario.name}</option>`).join('')}</select><small id="scenario-description">${SCENARIOS[0].description}</small></label>
+        <label class="parameter scenario-picker"><span>Scenario</span><select id="scenario" aria-label="Scenario">${SCENARIOS.map(scenario => `<option value="${scenario.id}">${scenario.name}</option>`).join('')}</select></label>
         <label class="parameter"><span>Bodies <output id="count-value" for="count">100</output></span><input id="count" name="count" type="range" min="32" max="1000" step="1" value="100"><small>Every star contributes to gravity</small></label>
         <label class="parameter"><span>Half-mass radius <output id="radius-value" for="radius">1.00 pc</output></span><input id="radius" name="radius" type="range" min="0.5" max="2" step="0.05" value="1"><small>3D radius enclosing half the initial mass</small></label>
-        <p class="population-mass">Initial mass <b id="total-mass"></b> M☉</p>
         <button type="submit" class="generate">Generate scene ${icon('arrow')}</button>
-      </fieldset><p class="form-note" id="form-note">A new arrangement. The same laws.</p></form>
-      <div class="simulation-controls" role="group" aria-label="Simulation controls"><button id="reset" class="scene-reset" disabled>${icon('reset')}<span>Reset</span></button></div>
+      </fieldset></form>
     </div>
   </section>
-  <div class="scene-coordinate" aria-hidden="true"><span id="scene-name">OPEN CLUSTER</span><span id="study-index"></span></div>
-  <aside class="inspector" aria-label="Selected star"><span class="eyebrow">STELLAR PORTRAIT</span><div id="inspector-content">Click a star to inspect and follow it.</div>
-    <p>Stellar interiors stay fixed at 125 Myr during playback. Cores are enlarged; brightness is compressed. Enhanced mergers: close approaches use enlarged capture radii, independently of the glows.</p>
-    <details><summary>About these scenarios</summary><p>Illustrative initial conditions, not reconstructions. Only the open cluster is inspired by the Pleiades; other scenarios explore collapse, expansion and a head-on encounter. Isolated, softened gravity; no gas or Galactic tides. Encounters and relaxation differ from the real cluster. Capture dissipates relative motion and merges stars immediately. This artistic approximation increases events; it does not predict real stellar collision rates.</p></details>
-  </aside>
-  <div class="physical-clock"><span id="elapsed"></span><span id="rate"></span><small>1× requests one gravitational timescale per minute</small></div>
-  <footer class="statusbar"><span><i></i><span id="status">PREPARING YOUR OBSERVATORY</span></span>
+  </header>
+  <aside id="inspector" class="inspector" aria-label="Selected star" hidden><div id="inspector-content"></div></aside>
+  <footer class="statusbar"><span aria-hidden="true"></span>
     <nav class="toolbar" aria-label="Camera controls">
       <button id="pause" class="play-control" disabled aria-label="Pause simulation">${icon('pause')}</button>
-      <label class="speed-control" title="Requested playback speed"><span>TIME</span><input id="speed" type="range" min="0.25" max="100" step="0.25" value="1" disabled aria-label="Simulation speed" aria-valuetext="1×"><output id="speed-value" for="speed">1×</output></label>
-      <span class="toolbar-divider"></span><button id="home" class="tool-button" disabled>${icon('target')}<span>Recenter</span></button><button id="cinematic" class="tool-button active" disabled aria-pressed="true">${icon('orbit')}<span>Cinematic</span></button>
-      <details class="controls-hint"><summary role="button" aria-label="How to explore"><span aria-hidden="true">?</span></summary><div><p><b>Drag</b><span>Orbit around the scene</span></p><p><b>Scroll / pinch</b><span>Move closer or farther</span></p><p><b>Shift + drag</b><span>Pan · right-drag also works</span></p><p><b>Click a star</b><span>Inspect and follow its motion</span></p><p class="hint-note">Move the camera to take control.<br>Cinematic restores the cluster view.</p></div></details>
-    </nav><span class="status-stats"><span><b id="body-count">100</b> BODIES</span><span><b id="merger-count">0</b> MERGERS</span><span><b id="fps">—</b> FPS</span><span>720P / WEBGPU</span></span>
+      <label class="speed-control" title="Requested playback speed"><span>TIME</span><input id="speed" type="range" min="1" max="100" step="1" value="1" disabled aria-label="Simulation speed" aria-valuetext="1×"><output id="speed-value" for="speed">1×</output></label>
+      <span class="toolbar-divider"></span><button id="home" class="tool-button" disabled>${icon('target')}<span>Recenter</span></button>
+      <details class="controls-hint"><summary role="button" aria-label="How to explore"><span aria-hidden="true">?</span></summary><div><p><b>Drag</b><span>Orbit around the scene</span></p><p><b>Scroll / pinch</b><span>Move closer or farther</span></p><p><b>Shift + drag</b><span>Pan · right-drag also works</span></p><p><b>Click a star</b><span>Inspect and follow its motion</span></p><p class="hint-note">Move the camera to take control.<br>Recenter restores the automatic cluster view.</p></div></details>
+    </nav>
   </footer>
   <div id="loading" class="loading"><span class="loader-orbit">${icon('orbit')}</span><span>Finding our place in the universe…</span></div>
   <section id="failure" class="failure" role="alert" hidden><span class="eyebrow">OBSERVATORY UNAVAILABLE</span><h2>A window we can’t open yet.</h2><p id="failure-message"></p><button id="reload" class="generate">Try again ${icon('arrow')}</button></section>
 </main>`;
 const element = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 const clock = new SimulationClock();
-let state = createScene(DEFAULT_SETTINGS, DEFAULT_SEED), initial = cloneState(state);
+let state = createScene(DEFAULT_SETTINGS, DEFAULT_SEED);
 let activeScenario: ScenarioId = 'open-cluster';
 let view: UniverseView | null = null, rig: CameraRig | null = null, failed = false;
 let lastFrame = 0, frames = 0, realSeconds = 0, simulatedUnits = 0;
@@ -61,6 +56,7 @@ let statsSeconds = 0, statsFrames = 0, statsUnits = 0, fps = 0, achievedSpeed = 
 let inspectorKey = '';
 function syncInspector(): void {
   const body = inspectBody(state, rig?.following ?? null);
+  element('inspector').hidden = !body;
   view?.select(state, body?.index ?? null);
   const key = body ? `${state.seed}:${body.index}:${state.mergerCount}` : 'none';
   if (key === inspectorKey) return;
@@ -68,66 +64,48 @@ function syncInspector(): void {
   element('inspector-content').innerHTML = body ? `<h2>Star ${body.index + 1}</h2><p>${body.kind} · ${body.subtype}</p><dl><dt>Mass</dt><dd>${body.mass.toFixed(3)} M☉</dd><dt>Physical radius</dt><dd>${body.radius.toFixed(3)} R☉</dd><dt>Capture radius</dt><dd>${body.encounterRadius.toFixed(3)} pc</dd><dt>Surface temperature</dt><dd>${Math.round(body.temperature).toLocaleString()} K</dd><dt>Luminosity</dt><dd>${body.luminosity.toPrecision(3)} L☉</dd></dl>${body.kind === 'merger remnant' ? '<p>Remnant properties use a homology approximation.</p>' : ''}` : 'Click a star to inspect and follow it.';
 }
 function syncPhysicalClock(): void {
-  element('elapsed').textContent = `${Math.round(unitsToYears(state.time)).toLocaleString()} years elapsed`;
   const normal = unitsToYears(clock.requestedRate(state)) / clock.speed;
-  element('rate').textContent = `Requested ${Math.round(normal * clock.speed).toLocaleString()} yr/s · achieved ${Math.round(clock.paused ? 0 : normal * achievedSpeed).toLocaleString()} yr/s`;
+  const requested = Math.round(normal * clock.speed / 1000);
+  const achieved = Math.round(clock.paused ? 0 : normal * achievedSpeed / 1000);
+  element('requested-rate').textContent = `${requested.toLocaleString()} kyr/s`;
+  element('achieved-rate').textContent = `${achieved.toLocaleString()} kyr/s`;
+  element('achieved-rate').classList.toggle('below-requested', achieved < requested);
 }
 function syncCameraUI(): void {
   if (!rig) return;
-  element('cinematic').classList.toggle('active', rig.cinematic);
-  element('cinematic').setAttribute('aria-pressed', String(rig.cinematic)); syncInspector();
+  syncInspector();
 }
 function syncPlayback(): void {
   element('pause').innerHTML = icon(clock.paused ? 'play' : 'pause');
   element('pause').setAttribute('aria-label', clock.paused ? 'Play simulation' : 'Pause simulation');
-  element('status').textContent = clock.paused ? 'TIME IS STILL · SPACE IS YOURS TO EXPLORE' : 'ALL STARS IN MUTUAL GRAVITY';
   syncPhysicalClock();
 }
 function syncSceneUI(): void {
-  const scenario = SCENARIOS.find(scenario => scenario.id === activeScenario)!;
-  element('scene-name').textContent = scenario.name.toUpperCase();
-  element('scene-description').textContent = scenario.description;
-  document.querySelector('.preset strong')!.textContent = scenario.name;
   element('body-count').textContent = String(state.activeCount);
   element('merger-count').textContent = String(state.mergerCount);
-  element('intro-count').textContent = `${state.count} stars.`;
-  element('total-mass').textContent = state.initialMass.toFixed(2);
-  element('study-index').textContent = `SEED ${state.seed}`;
 }
 function resetStats(): void { statsSeconds = statsFrames = statsUnits = achievedSpeed = 0; clock.clear(); lastFrame = 0; }
 function fatal(message: string): void {
   if (failed) return;
   failed = true; clock.paused = true;
   element('loading').hidden = true; element('failure').hidden = false;
-  element('failure-message').textContent = message; element('status').textContent = 'OBSERVATORY OFFLINE';
+  element('failure-message').textContent = message;
   element<HTMLFieldSetElement>('settings-fields').disabled = true;
-  for (const id of ['pause', 'speed', 'reset', 'home', 'cinematic']) (element(id) as HTMLButtonElement).disabled = true;
+  for (const id of ['pause', 'speed', 'home']) (element(id) as HTMLButtonElement).disabled = true;
 }
 element('reload').addEventListener('click', () => location.reload());
-element('settings-toggle').addEventListener('click', () => {
-  const content = element('settings-content'); content.hidden = !content.hidden;
-  element('settings-toggle').setAttribute('aria-expanded', String(!content.hidden));
-  element('settings-toggle').setAttribute('aria-label', content.hidden ? 'Expand scene settings' : 'Collapse scene settings');
-});
 for (const [id, format] of [['count', (n: number) => String(n)], ['radius', (n: number) => `${n.toFixed(2)} pc`]] as const) {
   const input = element<HTMLInputElement>(id);
   const update = () => { element(`${id}-value`).textContent = format(Number(input.value)); input.style.setProperty('--fill', `${(Number(input.value) - Number(input.min)) / (Number(input.max) - Number(input.min)) * 100}%`); };
-  input.addEventListener('input', () => { update(); element('form-note').textContent = 'New settings apply when you generate.'; element('form-note').classList.add('pending'); }); update();
+  input.addEventListener('input', update); update();
 }
-element('scenario').addEventListener('change', () => {
-  const scenario = SCENARIOS.find(scenario => scenario.id === element<HTMLSelectElement>('scenario').value)!;
-  element('scenario-description').textContent = scenario.description;
-  element('form-note').textContent = 'New settings apply when you generate.';
-  element('form-note').classList.add('pending');
-});
 
 element('scene-form').addEventListener('submit', event => {
   event.preventDefault(); if (!view || !rig || failed) return;
   activeScenario = element<HTMLSelectElement>('scenario').value as ScenarioId;
   state = createScenario({ count: Number(element<HTMLInputElement>('count').value), radius: Number(element<HTMLInputElement>('radius').value) }, crypto.getRandomValues(new Uint32Array(1))[0], activeScenario);
-  initial = cloneState(state); view.setScene(state); rig.reset(); clock.paused = false;
+  view.setScene(state); rig.reset(); clock.paused = false;
   resetStats(); syncSceneUI(); syncPlayback(); syncInspector();
-  element('form-note').textContent = 'A new arrangement. The same laws.'; element('form-note').classList.remove('pending');
 });
 element('pause').addEventListener('click', () => { clock.paused = !clock.paused; resetStats(); syncPlayback(); });
 element('speed').addEventListener('input', () => {
@@ -137,12 +115,7 @@ element('speed').addEventListener('input', () => {
   element('speed-value').textContent = label; input.setAttribute('aria-valuetext', label);
   resetStats(); syncPhysicalClock();
 });
-element('reset').addEventListener('click', () => {
-  if (!view || !rig) return;
-  state = cloneState(initial); clock.paused = true; view.setScene(state); rig.reset(); resetStats(); syncSceneUI(); syncPlayback(); syncInspector();
-});
 element('home').addEventListener('click', () => rig?.returnToScene());
-element('cinematic').addEventListener('click', () => rig?.resumeCinematic());
 for (const event of ['visibilitychange', 'freeze', 'resume']) document.addEventListener(event, resetStats);
 function animate(timestamp: number): void {
   if (failed || !view || !rig) return;
@@ -158,7 +131,7 @@ function animate(timestamp: number): void {
   if (statsSeconds >= 0.5) {
     fps = statsFrames / statsSeconds; achievedSpeed = statsUnits / (clock.requestedRate(state) / clock.speed * statsSeconds);
     element('fps').textContent = String(Math.round(fps));
-    element('status').textContent = clock.paused ? 'TIME IS STILL · SPACE IS YOURS TO EXPLORE' : achievedSpeed < clock.speed * 0.95 ? 'COMPUTATION LIMITED · ACHIEVED RATE SHOWN' : 'ALL STARS IN MUTUAL GRAVITY';
+    element('fps').classList.toggle('below-target', fps < 30);
     statsFrames = statsSeconds = statsUnits = 0;
   }
 }
@@ -176,7 +149,7 @@ async function start(): Promise<void> {
     view = await UniverseView.create(() => fatal('The connection to your graphics device was lost. Reload to start a fresh scene.'));
     element('viewport').prepend(view.canvas); view.setScene(state); rig = new CameraRig(view, () => state, syncCameraUI); syncCameraUI(); view.render();
     element('loading').hidden = true; element<HTMLFieldSetElement>('settings-fields').disabled = false;
-    for (const id of ['pause', 'speed', 'reset', 'home', 'cinematic']) (element(id) as HTMLButtonElement).disabled = false;
+    for (const id of ['pause', 'speed', 'home']) (element(id) as HTMLButtonElement).disabled = false;
     syncSceneUI(); syncPlayback(); document.documentElement.dataset.ready = 'true'; requestAnimationFrame(animate);
   } catch (error) { fatal(error instanceof Error ? error.message : 'WebGPU could not initialize on this device.'); }
 }
